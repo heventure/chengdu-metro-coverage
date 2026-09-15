@@ -59,13 +59,13 @@ jobs:
       - name: Build Electron package
         run: |
           npm ci
-          CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac zip --x64 --publish never
+          CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dmg --x64 --publish never
           VERSION="$(node -p "require('./package.json').version")"
-          mv dist/*-mac.zip "dist/chengdu-metro-coverage-${VERSION}-macos-x64.zip"
+          mv dist/*.dmg "dist/chengdu-metro-coverage-${VERSION}-macos-x64.dmg"
 
       - name: Upload Intel package to Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.inputs.release_tag || github.ref_name }}"
-          gh release upload "$TAG" dist/*-macos-x64.zip --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" dist/*-macos-x64.dmg --repo "$GITHUB_REPOSITORY" --clobber
