@@ -1,0 +1,57 @@
+name: Build macOS Intel
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to upload to
+        required: true
+        default: v1.0.0
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15-intel
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: brew install automake cmake libtool protobuf protobuf-c libspatialite pkg-config sqlite3 jq curl wget czmq lz4 spatialite-tools unzip luajit boost
+
+      - name: Build prime_server
+        run: |
+          git clone --depth=1 --recurse-submodules https://github.com/kevinkreiser/prime_server.git "$RUNNER_TEMP/prime_server"
+          cd "$RUNNER_TEMP/prime_server"
+          ./autogen.sh
+          ./configure
+          make -j"$(sysctl -n hw.logicalcpu)"
+          sudo make install
+
+      - name: Build Valhalla x86_64
+        run: |
+          git clone --depth=1 --recurse-submodules https://github.com/valhalla/valhalla.git "$RUNNER_TEMP/valhalla"
+          cmake -S "$RUNNER_TEMP/valhalla" -B "$RUNNER_TEMP/valhalla/build" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_TESTS=OFF \
+            -DENABLE_BENCHMARKS=OFF \
+            -DENABLE_SINGLE_FILES_WERROR=OFF
+          cmake --build "$RUNNER_TEMP/valhalla/build" --parallel "$(sysctl -n hw.logicalcpu)"
+          file "$RUNNER_TEMP/valhalla/build/valhalla_service"
+          cp "$RUNNER_TEMP/valhalla/build/valhalla_service" bin/valhalla_service
+
+      - name: Build Electron package
+        run: |
+          npm ci
+          CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac zip --x64
+
+      - name: Upload Intel package to Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag || github.ref_name }}"
+          gh release upload "$TAG" dist/*x64-mac.zip --repo "$GITHUB_REPOSITORY" --clobber
