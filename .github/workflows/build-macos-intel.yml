@@ -32,7 +32,15 @@ jobs:
           make -j"$(sysctl -n hw.logicalcpu)"
           sudo make install
 
+      - name: Cache Valhalla x86_64 service
+        id: valhalla-cache
+        uses: actions/cache@v4
+        with:
+          path: bin/valhalla_service
+          key: valhalla-macos-x64-service-v1
+
       - name: Build Valhalla x86_64
+        if: steps.valhalla-cache.outputs.cache-hit != 'true'
         run: |
           git clone --depth=1 --recurse-submodules https://github.com/valhalla/valhalla.git "$RUNNER_TEMP/valhalla"
           cmake -S "$RUNNER_TEMP/valhalla" -B "$RUNNER_TEMP/valhalla/build" \
@@ -44,6 +52,9 @@ jobs:
           file "$RUNNER_TEMP/valhalla/build/valhalla_service"
           mkdir -p bin
           cp "$RUNNER_TEMP/valhalla/build/valhalla_service" bin/valhalla_service
+
+      - name: Verify Valhalla x86_64 service
+        run: file bin/valhalla_service
 
       - name: Build Electron package
         run: |
