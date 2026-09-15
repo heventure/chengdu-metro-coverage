@@ -48,7 +48,7 @@ jobs:
       - name: Build Electron package
         run: |
           npm ci
-          CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac zip --x64
+          CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac zip --x64 --publish never
 
       - name: Upload Intel package to Release
         env:
