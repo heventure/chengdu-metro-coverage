@@ -42,6 +42,7 @@ jobs:
             -DENABLE_SINGLE_FILES_WERROR=OFF
           cmake --build "$RUNNER_TEMP/valhalla/build" --parallel "$(sysctl -n hw.logicalcpu)"
           file "$RUNNER_TEMP/valhalla/build/valhalla_service"
+          mkdir -p bin
           cp "$RUNNER_TEMP/valhalla/build/valhalla_service" bin/valhalla_service
 
       - name: Build Electron package
