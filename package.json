@@ -1,0 +1,9 @@
+{
+  "name": "chengdu-metro-coverage",
+  "version": "1.0.0",
+  "description": "成都地铁步行可达覆盖桌面版",
+  "main": "main.cjs",
+  "scripts": {"start":"electron .","dist":"electron-builder --mac zip --arm64"},
+  "devDependencies": {"electron":"^38.1.0","electron-builder":"^26.0.12"},
+  "build": {"appId":"chatgpt.chengdu.metro.coverage","productName":"成都地铁步行覆盖","mac":{"target":["zip"],"category":"public.app-category.navigation"},"files":["main.cjs","renderer.html"],"extraResources":[{"from":"bin/valhalla_service","to":"bin/valhalla_service"},{"from":"data/valhalla.json","to":"data/valhalla.json"},{"from":"data/valhalla_tiles.tar","to":"data/valhalla_tiles.tar"}]}
+}
