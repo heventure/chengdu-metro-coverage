@@ -1,21 +1,50 @@
-name: Build macOS Intel
+name: Release desktop packages
 
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Release tag to upload to
+        description: Release tag to build and upload
         required: true
         default: v1.0.0
-  push:
-    tags: ['v*']
 
 permissions:
   contents: write
 
+env:
+  VALHALLA_CACHE_VERSION: v1
+
 jobs:
-  build:
-    runs-on: macos-15-intel
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure GitHub Release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_TAG" \
+              --generate-notes
+          fi
+
+  build-macos:
+    name: macOS ${{ matrix.arch }} DMG
+    needs: prepare-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-14
+          - arch: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,14 +61,14 @@ jobs:
           make -j"$(sysctl -n hw.logicalcpu)"
           sudo make install
 
-      - name: Cache Valhalla x86_64 service
+      - name: Cache Valhalla service
         id: valhalla-cache
         uses: actions/cache@v4
         with:
           path: bin/valhalla_service
-          key: valhalla-macos-x64-service-v1
+          key: valhalla-macos-${{ matrix.arch }}-${{ env.VALHALLA_CACHE_VERSION }}
 
-      - name: Build Valhalla x86_64
+      - name: Build Valhalla service
         if: steps.valhalla-cache.outputs.cache-hit != 'true'
         run: |
           git clone --depth=1 --recurse-submodules https://github.com/valhalla/valhalla.git "$RUNNER_TEMP/valhalla"
@@ -49,23 +78,21 @@ jobs:
             -DENABLE_BENCHMARKS=OFF \
             -DENABLE_SINGLE_FILES_WERROR=OFF
           cmake --build "$RUNNER_TEMP/valhalla/build" --parallel "$(sysctl -n hw.logicalcpu)"
-          file "$RUNNER_TEMP/valhalla/build/valhalla_service"
           mkdir -p bin
           cp "$RUNNER_TEMP/valhalla/build/valhalla_service" bin/valhalla_service
 
-      - name: Verify Valhalla x86_64 service
+      - name: Verify Valhalla service
         run: file bin/valhalla_service
 
-      - name: Build Electron package
+      - name: Build DMG
         run: |
           npm ci
-          CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dmg --x64 --publish never
+          CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dmg --${{ matrix.arch }} --publish never
           VERSION="$(node -p "require('./package.json').version")"
-          mv dist/*.dmg "dist/chengdu-metro-coverage-${VERSION}-macos-x64.dmg"
+          mv dist/*.dmg "dist/chengdu-metro-coverage-${VERSION}-macos-${{ matrix.arch }}.dmg"
 
-      - name: Upload Intel package to Release
+      - name: Upload DMG to Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="${{ github.event.inputs.release_tag || github.ref_name }}"
-          gh release upload "$TAG" dist/*-macos-x64.dmg --repo "$GITHUB_REPOSITORY" --clobber
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+        run: gh release upload "$RELEASE_TAG" dist/*-macos-${{ matrix.arch }}.dmg --repo "$GITHUB_REPOSITORY" --clobber
