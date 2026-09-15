@@ -4,7 +4,7 @@
 
 ## 下载
 
-请在 [Releases](../../releases) 页面下载桌面版。当前提供 macOS Apple Silicon（arm64）版本；后续版本可继续添加 Intel Mac、Windows 和 Linux 构建。
+请在 [Releases](../../releases) 页面下载桌面版。当前提供 macOS Apple Silicon（arm64）和 Windows x64 版本；后续版本可继续添加 Intel Mac、Linux 等构建。
 
 ## 功能
 
